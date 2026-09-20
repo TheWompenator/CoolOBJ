@@ -15,9 +15,10 @@ int viewWidth = 0;
 int viewHeight = 0;
 
 boolean vertexShow = false;
-boolean naniteShow = true;
+boolean naniteShow = false;
 boolean faceShow = true;
 boolean depthFade = false;
+boolean mixedShade = true;
 
 float cameraZ = 5;
 float scale = 300;
@@ -112,6 +113,9 @@ void keyReleased() {
   if (key == 's') {
     depthFade = !depthFade;
   }
+  if (key == 'm') {
+    mixedShade = !mixedShade;
+  }
 }
 
 void keyPressed() {
@@ -167,17 +171,20 @@ void draw() {
         colourR = colours[i];
         colourG = colours[i+1];
         colourB = colours[i+2];
-      } else {
-        if (depthFade) {
+      } else if (depthFade) {
           colourR = 255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
           colourG = 255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
           colourB = 255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+        } else if (mixedShade){
+          colourR = colours[i] * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+          colourG = colours[i+1] * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+          colourB = colours[i+2] * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
         } else {
           colourR = 230;
           colourG = 230;
           colourB = 230;
         }
-      }
+      
 
       triangleData[runningTriangles] = new TriData(x1, y1, z1, x2, y2, z2, x3, y3, z3, faceDepth, colourR, colourG, colourB);
       runningTriangles++;
