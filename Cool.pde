@@ -18,11 +18,19 @@ boolean vertexShow = false;
 boolean naniteShow = false;
 boolean faceShow = true;
 boolean depthFade = false;
-boolean mixedShade = true;
+boolean mixedShade = false;
+boolean colourShade = true;
+boolean autoRotate = true;
+boolean performanceOverlay = false;
 
-float cameraZ = 5;
+float cameraZ = 1.6;
 float scale = 300;
+float autoRotateSpeed = 0.001;
 
+float rotationY = 0;
+
+float lastMillis = 0;
+float dTime = 0;
 
 public class TriData {
   float x1 = 0;
@@ -64,13 +72,12 @@ public class TriData {
   };
 }
 
-
-
 void setup() {
   size(1024, 1024);
   viewWidth = width;
   viewHeight = height;
-
+  
+  textSize(16);
   noStroke();
   fill(200);
   noSmooth();
@@ -116,6 +123,15 @@ void keyReleased() {
   if (key == 'm') {
     mixedShade = !mixedShade;
   }
+  if (key == 'c') {
+    colourShade = !colourShade;
+  }
+  if(key == 'r') {
+    autoRotate = !autoRotate;
+  }
+  if(key == 'p') {
+     performanceOverlay = !performanceOverlay; 
+  }
 }
 
 void keyPressed() {
@@ -124,13 +140,22 @@ void keyPressed() {
       cameraZ -= 0.1;
     } else if (keyCode == DOWN) {
       cameraZ += 0.1;
+    } else if (keyCode == LEFT) {
+      rotationY += 0.1;
+    } else if (keyCode == RIGHT) {
+      rotationY -= 0.1;
     }
   }
 }
 
 void draw() {
+  dTime = millis() - lastMillis;
   TriData triangleData[] = new TriData[4096];
   int runningTriangles = 0;
+  
+  if (autoRotate){
+     rotationY += dTime * autoRotateSpeed;
+  }
 
   /*
   This is the draw call, In the draw call we want to first calculate where we should draw each triangle.
@@ -138,7 +163,7 @@ void draw() {
    This is done by adding
    */
 
-  background(0);
+  background(0, 11, 33);
   //TODO: Reimpliment vertex rendering to work with projection system
   //if (vertexShow) {
   //  fill(120);
@@ -147,19 +172,39 @@ void draw() {
   //  }
   //}
   if (faceShow) {
+    float cosY = cos(rotationY);
+    float sinY = sin(rotationY);
     for (int i=0; i < runningConnections; i+=3) {
 
       float x1 = vertex[connections[i] * 3];
       float y1 = vertex[connections[i] * 3 + 1];
-      float z1 = vertex[connections[i] * 3 + 2] + cameraZ;
+      float z1 = vertex[connections[i] * 3 + 2];
 
       float x2 = vertex[connections[i + 1] * 3];
       float y2 = vertex[connections[i + 1] * 3 + 1];
-      float z2 = vertex[connections[i + 1] * 3 + 2] + cameraZ;
+      float z2 = vertex[connections[i + 1] * 3 + 2];
 
       float x3 = vertex[connections[i + 2] * 3];
       float y3 = vertex[connections[i + 2] * 3 + 1];
-      float z3 = vertex[connections[i + 2] * 3 + 2] + cameraZ;
+      float z3 = vertex[connections[i + 2] * 3 + 2];
+
+      float rotatedX1 = x1 * cosY + z1 * sinY;
+      float rotatedZ1 = -x1 * sinY + z1 * cosY;
+
+      float rotatedX2 = x2 * cosY + z2 * sinY;
+      float rotatedZ2 = -x2 * sinY + z2 * cosY;
+
+      float rotatedX3 = x3 * cosY + z3 * sinY;
+      float rotatedZ3 = -x3 * sinY + z3 * cosY;
+
+      x1 = rotatedX1;
+      z1 = rotatedZ1 + cameraZ;
+
+      x2 = rotatedX2;
+      z2 = rotatedZ2 + cameraZ;
+
+      x3 = rotatedX3;
+      z3 = rotatedZ3 + cameraZ;
 
       float faceDepth = z1 + z2 + z3;
 
@@ -172,19 +217,23 @@ void draw() {
         colourG = colours[i+1];
         colourB = colours[i+2];
       } else if (depthFade) {
-          colourR = 255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
-          colourG = 255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
-          colourB = 255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
-        } else if (mixedShade){
-          colourR = colours[i] * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
-          colourG = colours[i+1] * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
-          colourB = colours[i+2] * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
-        } else {
-          colourR = 230;
-          colourG = 230;
-          colourB = 230;
-        }
-      
+        colourR = 255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+        colourG = 255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+        colourB = 255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+      } else if (mixedShade) {
+        colourR = colours[i] * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+        colourG = colours[i+1] * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+        colourB = colours[i+2] * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+      } else if (colourShade) {
+        colourR = 240 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2);
+        colourG = Math.abs(10 * faceDepth);
+        colourB = 240 - (255 * ((((faceDepth-cameraZ*3) / 3) + 1) / 2));
+      } else {
+        colourR = 230;
+        colourG = 230;
+        colourB = 230;
+      }
+
 
       triangleData[runningTriangles] = new TriData(x1, y1, z1, x2, y2, z2, x3, y3, z3, faceDepth, colourR, colourG, colourB);
       runningTriangles++;
@@ -210,4 +259,12 @@ void draw() {
         );
     }
   }
+  
+  if (performanceOverlay){
+      fill(255);
+      text("ms: "+Float.toString(dTime), 4, 20);
+      text("triangles: "+runningTriangles, 4, 40);  
+  }
+  
+  lastMillis = millis();
 }
